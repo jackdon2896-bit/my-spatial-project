@@ -1,20 +1,30 @@
-#!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-// Import the module
-include { CROP_AND_COMPRESS } from './modules/process_tiff.nf'
-
 workflow {
-    // Create a channel from the S3 path defined in your config
-    // Note: checkIfExists: true sometimes struggles with S3; remove if you hit connection issues
-    tiff_ch = Channel.fromPath(params.input_s3, checkIfExists: true)
 
-    // Run the process
-    CROP_AND_COMPRESS(tiff_ch)
+    tiff_ch = Channel.fromPath(params.tiff)
+    h5_ch   = Channel.fromPath(params.h5)
+
+    // IMAGE
+    filled = PREPROCESS_IMAGE(tiff_ch)
+    mask   = CELLPOSE_SEGMENT(filled)
+    roi    = AI_ROI_CROP(filled, mask)
+
+    // scRNA
+    qc       = SCRNA_QC(h5_ch)
+    filtered = SCRNA_MAD_FILTER(qc)
+    reduced  = SCRNA_DIM_REDUCTION(filtered)
+    cluster  = SCRNA_CLUSTER(reduced)
+    annot    = SCRNA_ANNOTATE(cluster)
+
+    // Spatial refinement
+    refined  = SPATIAL_REFINE(annot, roi)
+
+    // Integration
+    integrated = SPATIAL_INTEGRATION(roi, refined)
+
+    SCRNA_PLOTS(refined)
+    SPATIAL_PLOTS(integrated)
+
+    REPORT(integrated)
 }
-
-/* 
-   Note: The 'script:' block below usually lives inside 
-   ./modules/process_tiff.nf. If you are keeping it in this 
-   main file, it must be wrapped in a 'process' block.
-*/
