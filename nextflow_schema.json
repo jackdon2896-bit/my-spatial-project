@@ -1,4 +1,4 @@
-{
+ {
     "$schema": "http://json-schema.org/draft-07/schema",
     "$id": "https://raw.githubusercontent.com/jackdon2896-bit/aws_spatial/main/nextflow_schema.json",
     "version": "1.0.0",
